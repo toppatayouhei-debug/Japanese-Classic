@@ -5,8 +5,8 @@ import random
 # データの読み込み
 df = pd.read_csv('kobun.csv')
 
-st.title("🎎 古文単語 意味の識別")
-st.write("古文単語の正しい現代語訳を選択してください。")
+st.title("繰り返してなんとかする古文単語")
+st.write("意味を選んでね。あとは文章をたくさん読むべし。")
 
 # セッション状態の初期化
 if 'idx' not in st.session_state:

@@ -2,58 +2,48 @@ import streamlit as st
 import pandas as pd
 import random
 
-# データの読み込み
-df = pd.read_csv('kobun.csv')
+# 新しい形式のCSVを読み込む
+df = pd.read_csv('kobun_v2.csv') 
 
-st.title("繰り返してなんとかする古文単語")
-st.write("意味を選んでね。あとは文章をたくさん読むべし。")
+st.title("繰り返してなんとかする古文単語（改良版）")
 
-# セッション状態の初期化
 if 'idx' not in st.session_state:
     st.session_state.idx = 0
     st.session_state.score = 0
     st.session_state.questions = df.sample(frac=1).reset_index(drop=True)
     st.session_state.new_ques = True
 
-# クイズ中
 if st.session_state.idx < len(st.session_state.questions):
     row = st.session_state.questions.iloc[st.session_state.idx]
     
-    st.subheader(f"第 {st.session_state.idx + 1} 問 / 全 {len(st.session_state.questions)} 問")
-    st.write(f"### 次の単語の意味は？: **{row['question']}**")
+    # 文字列をリストに変換
+    correct_list = [a.strip() for a in str(row['all_answers']).split(',')]
+    dummy_list = [d.strip() for d in str(row['dummy_pool']).split(',')]
 
-    # 選択肢の作成とシャッフル
     if st.session_state.new_ques:
-        choices = [row['answer'], row['dummy1'], row['dummy2'], row['dummy3']]
-        random.shuffle(choices)
-        st.session_state.shuffled_choices = choices
+        # 正解候補からランダムに1つ、ダミーから3つ選んでシャッフル
+        display_correct = random.choice(correct_list)
+        display_dummies = random.sample(dummy_list, 3)
+        
+        st.session_state.shuffled_choices = [display_correct] + display_dummies
+        random.shuffle(st.session_state.shuffled_choices)
         st.session_state.new_ques = False
         st.session_state.answered = False
 
-    # 4択ボタン
+    st.subheader(f"第 {st.session_state.idx + 1} 問: **{row['question']}**")
+
     for choice in st.session_state.shuffled_choices:
         if st.button(choice, use_container_width=True, disabled=st.session_state.answered):
             st.session_state.answered = True
-            if choice == row['answer']:
-                st.success(f"✨ 正解！！ 【{row['question']} ＝ {row['answer']}】")
+            # ここが重要：選んだ選択肢が正解リストのどれかに一致するか判定
+            if choice in correct_list:
+                st.success(f"✨ 正解！「{row['question']}」の意味：{', '.join(correct_list)}")
                 st.session_state.score += 1
             else:
-                st.error(f"❌ 残念！ 正解は「{row['answer']}」でした。")
-            st.write("---")
+                st.error(f"❌ 不正解。正解は：{', '.join(correct_list)}")
 
-    # 次へ進む
     if st.session_state.answered:
         if st.button("次の単語へ"):
             st.session_state.idx += 1
             st.session_state.new_ques = True
             st.rerun()
-
-# 全問終了
-else:
-    st.balloons()
-    st.write(f"## 全問終了！正解数: {st.session_state.score} / {len(st.session_state.questions)}")
-    if st.button("最初から修行し直す"):
-        st.session_state.idx = 0
-        st.session_state.score = 0
-        st.session_state.new_ques = True
-        st.rerun()

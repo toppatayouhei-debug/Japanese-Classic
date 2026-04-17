@@ -5,7 +5,7 @@ import random
 # 新しい形式のCSVを読み込む
 df = pd.read_csv('kobun_v2.csv') 
 
-st.title("繰り返してなんとかする古文単語（改良版）")
+st.title("なんとかしよう古文単語")
 
 if 'idx' not in st.session_state:
     st.session_state.idx = 0

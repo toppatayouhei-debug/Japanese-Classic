@@ -6,8 +6,7 @@ import random
 @st.cache_data
 def load_data():
     try:
-        # ファイル名を 'kobun350.csv' に指定
-        # encoding='utf-8-sig' はExcelで作ったCSVの文字化けを防ぎます
+        # 作成したCSVファイル名に合わせて読み込み
         df = pd.read_csv('kobun350.csv', on_bad_lines='skip', engine='python', encoding='utf-8-sig')
         return df
     except FileNotFoundError:
@@ -16,9 +15,8 @@ def load_data():
 df = load_data()
 
 # --- 2. 画面設定 ---
-st.set_page_config(page_title="ほぼ🐰網羅の古文単語350", layout="centered")
+st.set_page_config(page_title="古文 意地でも覚える350語", layout="centered")
 
-# CSSでデザインを調整
 st.markdown("""
     <style>
     .stMarkdown p { line-height: 1.9; }
@@ -46,7 +44,7 @@ if df is None:
 if 'idx' not in st.session_state:
     st.session_state.idx = 0
     st.session_state.score = 0
-    # 全単語をシャッフルしてクイズを生成
+    # 全単語をシャッフルしてクイズリストを作成
     st.session_state.questions = df.sample(frac=1).reset_index(drop=True)
     st.session_state.new_ques = True
     st.session_state.answered = False
@@ -64,16 +62,14 @@ if st.session_state.idx < len(st.session_state.questions):
     row = st.session_state.questions.iloc[st.session_state.idx]
     st.progress((st.session_state.idx + 1) / len(st.session_state.questions))
     
-    # CSVの列名（question, all_answers, dummy_pool, sentence, translation）に基づき処理
+    # 意味（all_answers）とダミー（dummy_pool）をリスト化
     correct_list = [a.strip() for a in str(row['all_answers']).split(',')]
     dummy_list = [d.strip() for d in str(row['dummy_pool']).split(',')]
 
     if st.session_state.new_ques:
-        # 正解の選択肢を1つ選ぶ
+        # 正解を1つ選び、ダミーを3つ選んでシャッフル
         display_correct = random.choice(correct_list)
-        # ダミーを最大3つ選ぶ
         display_dummies = random.sample(dummy_list, min(len(dummy_list), 3))
-        # 選択肢を混ぜる
         choices = [display_correct] + display_dummies
         random.shuffle(choices)
         st.session_state.shuffled_choices = choices
@@ -85,21 +81,20 @@ if st.session_state.idx < len(st.session_state.questions):
     sentence = str(row['sentence']) if pd.notna(row.get('sentence')) else ""
     target = str(row['question'])
     
-    # 例文内のキーワードをハイライト
+    # 例文のハイライト処理
     highlighted_html = f'<span class="highlight-green">{target}</span>'
     if target in sentence:
         highlighted_sentence = sentence.replace(target, highlighted_html)
     else:
         highlighted_sentence = f"（単語） {highlighted_html}"
 
-    # 問題文の表示
     st.markdown(f"""
         <div style="background-color:#f0f4f0; padding:25px; border-radius:10px; border-left:10px solid #2e7d32; margin-bottom:20px;">
             <p style="font-size:24px; color:#333; font-family: 'serif';">{highlighted_sentence}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # 選択肢ボタン
+    # 選択肢の表示
     for choice in st.session_state.shuffled_choices:
         if st.button(choice, use_container_width=True, disabled=st.session_state.answered):
             st.session_state.answered = True
@@ -110,7 +105,7 @@ if st.session_state.idx < len(st.session_state.questions):
                 st.session_state.last_result = "incorrect"
             st.rerun()
 
-    # 回答後の解説表示
+    # 回答後の解説
     if st.session_state.answered:
         if st.session_state.last_result == "correct":
             st.success(f"✨ **正解！**")
@@ -129,14 +124,13 @@ if st.session_state.idx < len(st.session_state.questions):
             st.session_state.answered = False
             st.rerun()
 else:
-    # 全問終了時
+    # 終了画面
     st.balloons()
     st.write("## 🎉 350語全問終了！お疲れ様でした！")
-    accuracy = (st.session_state.score / len(st.session_state.questions)) * 100
-    st.metric("最終正答率", f"{accuracy:.1f}%")
+    final_accuracy = (st.session_state.score / len(st.session_state.questions)) * 100
+    st.metric("最終正答率", f"{final_accuracy:.1f}%")
     
     if st.button("もう一度最初から（シャッフルして再開）"):
-        # セッションをクリアして再起動
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()

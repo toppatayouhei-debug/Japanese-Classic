@@ -6,15 +6,16 @@ import random
 @st.cache_data
 def load_data():
     try:
-        # header=None にすることで、1行目から確実に読み込みます
+        # header=None にして1行目から読み込み
         df = pd.read_csv(
             'kobun350.csv', 
             engine='python', 
             encoding='utf-8-sig',
             header=None
         )
-        # もし1行目がヘッダー（question等）だった場合、それを除外する処理
-        if "question" in str(df.iloc[0, 0]).lower():
+        # 1行目がヘッダー（英語など）の場合に除外する処理
+        first_cell = str(df.iloc[0, 0]).lower()
+        if "question" in first_cell or "単語" in first_cell:
             df = df.iloc[1:].reset_index(drop=True)
         return df
     except Exception as e:
@@ -28,17 +29,26 @@ st.set_page_config(page_title="古文 意地でも覚える350語", layout="cent
 
 st.markdown("""
     <style>
-    .stMarkdown p { line-height: 1.9; }
+    .stMarkdown p { line-height: 1.7; }
     .main { background-color: #fdfaf5; }
     .highlight-green {
         color: #2e7d32; 
         font-weight: bold; 
         border-bottom: 2px solid #2e7d32;
-        padding-bottom: 2px;
     }
+    /* スマホでボタンを押しやすく */
     .stButton button {
-        font-size: 18px !important;
-        height: 3em;
+        font-size: 16px !important;
+        min-height: 3.5em;
+        margin-bottom: 5px;
+    }
+    /* 例文ボックスの調整 */
+    .sentence-box {
+        background-color: #f0f4f0; 
+        padding: 20px; 
+        border-radius: 10px; 
+        border-left: 8px solid #2e7d32; 
+        margin-bottom: 20px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -46,7 +56,7 @@ st.markdown("""
 st.title("古文 意地でも覚える350語")
 
 if df is None:
-    st.error("⚠️ 'kobun350.csv' が見つかりません。GitHubにアップロードされているか確認してください。")
+    st.error("⚠️ 'kobun350.csv' が見つかりません。GitHubのファイル名を確認してください。")
     st.stop()
 
 # --- 3. セッション状態の初期化 ---
@@ -57,31 +67,30 @@ if 'idx' not in st.session_state:
     st.session_state.new_ques = True
     st.session_state.answered = False
 
-# サイドバーに進捗を表示
+# 進捗表示
 st.sidebar.header("📊 学習状況")
 st.sidebar.write(f"進捗: {st.session_state.idx} / {len(st.session_state.questions)}")
-if st.session_state.idx > 0:
-    accuracy = (st.session_state.score / st.session_state.idx) * 100
-    st.sidebar.metric("正答率", f"{accuracy:.1f}%")
 
 # --- 4. クイズ本編 ---
 if st.session_state.idx < len(st.session_state.questions):
     row = st.session_state.questions.iloc[st.session_state.idx]
     st.progress((st.session_state.idx + 1) / len(st.session_state.questions))
     
-    # 【重要】列番号でデータを取得
-    # 0:単語, 1:正解, 2:ダミー, 3:例文, 4:訳
-    target = str(row[0])
-    all_answers_raw = str(row[1])
-    dummy_pool_raw = str(row[2])
-    sentence = str(row[3])
-    translation = str(row[4])
+    # データの取得（空白を空文字に変換）
+    target = str(row[0]).strip()
+    all_answers_raw = str(row[1]).strip()
+    dummy_pool_raw = str(row[2]).strip()
+    
+    # 例文と訳の取得処理（pd.isnaを使って確実に空判定）
+    sentence = str(row[3]).strip() if pd.notna(row[3]) else ""
+    translation = str(row[4]).strip() if pd.notna(row[4]) else ""
 
     correct_list = [a.strip() for a in all_answers_raw.split(',')]
     dummy_list = [d.strip() for d in dummy_pool_raw.split(',')]
 
     if st.session_state.new_ques:
         display_correct = random.choice(correct_list)
+        # ダミーを最大3つ抽出
         display_dummies = random.sample(dummy_list, min(len(dummy_list), 3))
         choices = [display_correct] + display_dummies
         random.shuffle(choices)
@@ -91,16 +100,22 @@ if st.session_state.idx < len(st.session_state.questions):
 
     st.write(f"### 第 {st.session_state.idx + 1} 問")
     
-    # 例文のハイライト
+    # 例文の表示判定
     highlighted_html = f'<span class="highlight-green">{target}</span>'
-    if target in sentence and sentence != "nan":
-        highlighted_sentence = sentence.replace(target, highlighted_html)
+    
+    # sentenceが空、または "nan" という文字列でない場合
+    if sentence and sentence.lower() != "nan":
+        if target in sentence:
+            display_text = sentence.replace(target, highlighted_html)
+        else:
+            # ターゲットが見つからない場合も例文を表示
+            display_text = f"{sentence}<br><small>(語句: {highlighted_html})</small>"
     else:
-        highlighted_sentence = f"（単語） {highlighted_html}"
+        display_text = f"（単語） {highlighted_html}"
 
     st.markdown(f"""
-        <div style="background-color:#f0f4f0; padding:25px; border-radius:10px; border-left:10px solid #2e7d32; margin-bottom:20px;">
-            <p style="font-size:24px; color:#333; font-family: 'serif';">{highlighted_sentence}</p>
+        <div class="sentence-box">
+            <p style="font-size:22px; color:#333; font-family: 'serif';">{display_text}</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -108,24 +123,21 @@ if st.session_state.idx < len(st.session_state.questions):
     for choice in st.session_state.shuffled_choices:
         if st.button(choice, use_container_width=True, disabled=st.session_state.answered):
             st.session_state.answered = True
-            if choice in correct_list:
-                st.session_state.last_result = "correct"
+            st.session_state.last_result = "correct" if choice in correct_list else "incorrect"
+            if st.session_state.last_result == "correct":
                 st.session_state.score += 1
-            else:
-                st.session_state.last_result = "incorrect"
             st.rerun()
 
-    # 回答後の表示
+    # 回答後の処理
     if st.session_state.answered:
         if st.session_state.last_result == "correct":
             st.success("✨ 正解！")
         else:
             st.error("❌ 不正解...")
         
-        st.write(f"**「{target}」の主な意味:**")
-        st.info(", ".join(correct_list))
+        st.info(f"**「{target}」の主な意味:**\n{', '.join(correct_list)}")
 
-        if translation != "nan":
+        if translation and translation.lower() != "nan":
             with st.expander("📖 現代語訳を見る", expanded=True):
                 st.write(translation)
 
@@ -136,11 +148,11 @@ if st.session_state.idx < len(st.session_state.questions):
             st.rerun()
 else:
     st.balloons()
-    st.write("## 🎉 350語全問終了！お疲れ様でした！")
+    st.write("## 🎉 350語全問終了！")
     accuracy = (st.session_state.score / len(st.session_state.questions)) * 100
     st.metric("最終正答率", f"{accuracy:.1f}%")
     
-    if st.button("もう一度最初から解く"):
+    if st.button("もう一度最初から（シャッフル）"):
         for key in list(st.session_state.keys()):
             del st.session_state[key]
         st.rerun()

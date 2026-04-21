@@ -31,7 +31,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🌿 なんとかしよう古文単語")
+st.title("ほぼ🐰網羅の古文単語")
 
 if df is None:
     st.error("⚠️ 'kobun_v2.csv' が見つかりません。")
